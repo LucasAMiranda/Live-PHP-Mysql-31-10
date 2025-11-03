@@ -1,29 +1,42 @@
-<?php 
-    include("conexao.php");
+<?php
+session_start();
+include("conexao.php");
 
-    $sql = "INSERT INTO usuarios (nome, senha) VALUES ('$nome', '$senha')";
+// Verifica se o formulário foi enviado
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    session_start();
+    // Filtra e valida os dados recebidos
+    $username = trim($_POST['username']);
+    $password = trim($_POST['password']);
 
-    if(isset($_POST['username']) && isset($_POST['password'])){
-        $_SESSION['username'] = $_POST['username'];
-        $_SESSION['password'] = $_POST['password'];
+    if (!empty($username) && !empty($password)) {
+        // Prepara a consulta SQL de forma segura (evita SQL Injection)
+        $stmt = $conn->prepare("SELECT * FROM usuarios WHERE nome = ?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-        //verificar se as sessões do login são válidas
-        if(!empty($_SESSION['username']) && !empty($_SESSION['password'])){
-            $_SESSION['username'] = $nome;
-            $_SESSION['password'] = $senha;
-            //redirecionar para a página de exames
-            header("Location: exames.php");
-            exit();
-        }else{
-            $error =  "Nome de usuário ou senha inválidos.";
-            echo $error;
+        // Verifica se o usuário existe
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+
+            // Verifica a senha (criptografada)
+            if (password_verify($password, $user['senha'])) {
+                $_SESSION['username'] = $user['nome'];
+
+                // Redireciona para a página de exames
+                header("Location: exames.php");
+                exit();
+            } else {
+                $error = "Senha incorreta.";
+            }
+        } else {
+            $error = "Usuário não encontrado.";
         }
+    } else {
+        $error = "Preencha todos os campos.";
     }
-
-
-
+}
 ?>
 
 <!DOCTYPE html>
@@ -31,24 +44,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home-Exames Médicos</title>
+    <title>Login - Sistema de Exames Médicos</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-   <h1>Bem-vindo ao Sistema de Exames Médicos</h1>
-   <p>Este é o sistema para gerenciamento de exames médicos.</p>
-   
-   <h2>Login de Acesso</h2>
+    <h1>Bem-vindo ao Sistema de Exames Médicos</h1>
+    <p>Gerencie exames com segurança e praticidade.</p>
 
-   <a href="form.php">Cadastrar Novo Usuário</a>
-   <form method="POST">
-       <label for="username">Usuário:</label>
-       <input type="text" id="username" name="username" required>
-       <br><br>
-       <label for="password">Senha:</label>
-       <input type="password" id="password" name="password" required>
-       <br><br>
-       <button  id="salvar" type="submit" value="Entrar">Salvar</button>
-   </form>
+    <h2>Login de Acesso</h2>
+
+    <?php if (!empty($error)): ?>
+        <div class="error"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
+
+    <form method="POST" action="">
+        <label for="username">Usuário:</label>
+        <input type="text" id="username" name="username" required>
+
+        <label for="password">Senha:</label>
+        <input type="password" id="password" name="password" required>
+
+        <button type="submit">Entrar</button>
+    </form>
+
+    <p><a href="form.php">Cadastrar Novo Usuário</a></p>
 </body>
 </html>
